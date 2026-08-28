@@ -1,0 +1,77 @@
+# =============================================================================
+# config-server
+# =============================================================================
+# 이 서비스는 자기 설정을 config 저장소에서 받지 못함
+# 저장소 주소를 알아야 저장소를 읽으므로 그 값이 여기와 환경변수에 있어야 함
+#
+# 바꿀 때 무엇이 필요한지
+#   config 저장소의 값     git push 만, 이 서버는 다시 띄우지 않아도 됨
+#   여기 있는 주소         환경변수로 빼 두었으므로 컨테이너 재시작만
+#   코드와 의존성          이미지 재빌드 + 재배포
+#
+# 그래서 이 파일은 최대한 비워 두고 환경마다 다른 값은 전부 환경변수로 뺌
+# =============================================================================
+
+spring:
+  application:
+    name: config-server
+
+  # 아무도 프로파일을 지정하지 않으면 local 로 봄
+  # active 가 아니라 default 인 것이 중요함
+  # 컨테이너의 SPRING_PROFILES_ACTIVE=dev 가 이기고, IntelliJ 는 그냥 local 로 돎
+  profiles:
+    default: local
+
+  cloud:
+    config:
+      server:
+        git:
+          # 공개 저장소이므로 인증이 필요 없음
+          # 비공개로 바꾸면 username, password 에 fine-grained PAT 를 환경변수로 주입함
+          uri: https://github.com/paw-trail/config
+
+          # 클라이언트가 라벨을 지정하지 않으면 이 브랜치를 읽음
+          # 라벨은 깃 브랜치이고 우리 기본 브랜치가 main 임
+          default-label: main
+
+          # 기동할 때 미리 clone 해 둠
+          # 기본값은 첫 요청 때 clone 이라 처음 뜨는 서비스만 느려지고
+          # 저장소 주소가 틀려도 그때까지 드러나지 않음
+          clone-on-start: true
+
+server:
+  port: 8888
+
+eureka:
+  client:
+    # 다른 서비스를 호출할 일이 없으므로 레지스트리를 받지 않음
+    fetch-registry: false
+
+    # 등록은 함
+    # 동작에 필요해서가 아니라 유레카 대시보드가 지금 무엇이 떠 있는지를 보는
+    # 단일 화면인데 플랫폼 3개 중 하나만 빠지면 확인 경로가 갈라지기 때문임
+    register-with-eureka: true
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # refresh 는 넣지 않음
+        # 요청마다 저장소를 다시 읽으므로 자기 설정을 갱신할 대상이 없음
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  logging:
+    loki:
+      # local 프로파일에서는 appender 가 붙지 않으므로 실제로 쓰이지 않음
+      # 값을 채워 두는 것은 프로파일만 바꿔서 확인할 수 있게 하려는 것임
+      url: http://${LOKI_HOST:localhost}:3100/loki/api/v1/push
+
+logging:
+  level:
+    com.pawtrail: DEBUG

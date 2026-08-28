@@ -1,0 +1,65 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.pawtrail'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('springCloudVersion', "2025.1.3")
+}
+
+dependencies {
+    // ── Spring Cloud ──────────────────────────────────────────
+    // 이 의존성이 웹 스타터를 전이로 끌어옴
+    // 안 끌어오면 서블릿 컨테이너 없이 떴다가 바로 종료되므로
+    // 기동 로그에 Tomcat started on port 8888 이 뜨는지 확인할 것
+    implementation 'org.springframework.cloud:spring-cloud-config-server'
+
+    // 등록만 하고 레지스트리는 받지 않음
+    // 다른 서비스를 호출할 일이 없어 동작에 필요한 것은 아니고
+    // 유레카 대시보드에서 플랫폼 3개가 모두 보이게 하려는 것임
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+
+    // spring-cloud-starter-config 는 넣지 않음
+    // 그것은 설정을 받아 오는 클라이언트이고 이 서비스는 서버임
+
+    // ── 상태확인 · 관측 ───────────────────────────────────────
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // actuator 만으로는 /actuator/prometheus 가 생기지 않음
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
+    // ── 로깅 ──────────────────────────────────────────────────
+    // 공통 모듈을 의존하지 않으므로 직접 선언함
+    // 플랫폼 3종이 common 을 쓰지 않는 이유는 README 를 참고
+    implementation "com.github.loki4j:loki-logback-appender:${lokiVersion}"
+
+    // ── 테스트 ────────────────────────────────────────────────
+    // Boot 4 에서 테스트 스타터가 모듈별로 갈림
+    // contextLoads 가 실패하면 spring-boot-starter-webmvc-test 를 더할 것
+    testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

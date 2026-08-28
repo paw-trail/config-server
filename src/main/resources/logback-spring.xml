@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  로깅 설정임
+
+  파일 이름이 반드시 logback-spring.xml 이어야 함
+  logback.xml 로 두면 스프링 확장이 걸리지 않아 <springProfile> 과 <springProperty> 가
+  오류 없이 조용히 무시됨
+
+  도메인 서비스는 appender 정의를 공통 모듈 jar 에서 include 해 오지만
+  이 서비스는 공통 모듈을 의존하지 않으므로 여기에 직접 적음
+-->
+<configuration>
+
+    <!-- Boot 이 제공하는 기본 변수와 콘솔 appender 정의임 -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!-- application.yml 의 값을 logback 변수로 끌어옴 -->
+    <springProperty name="appName" source="spring.application.name" defaultValue="config-server"/>
+    <springProperty name="lokiUrl" source="app.logging.loki.url"
+                    defaultValue="http://localhost:3100/loki/api/v1/push"/>
+
+    <!--
+      라벨은 Loki 가 색인하는 값이라 종류가 적어야 함(저카디널리티)
+      쉼표를 쓰지 않고 한 줄에 하나씩 적는 것이 loki4j 2.x 문법이며
+      1.x 의 <format><label><pattern>a=1,b=2</pattern></label></format> 구조는 없어졌음
+    -->
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+
+        <labels>
+            app = ${appName}
+            level = %level
+        </labels>
+
+        <!--
+          structured metadata 는 색인되지 않으므로 값이 많은 것을 담기에 적합함
+          traceId 는 이 서비스에서 쓰지 않음
+          요청 체인의 일부가 아니라 기동할 때 한 번과 refresh 때만 호출되기 때문임
+        -->
+        <structuredMetadata>
+            thread = %thread
+            logger = %logger
+        </structuredMetadata>
+
+        <message>
+            <pattern>%msg%n%ex</pattern>
+        </message>
+
+        <http>
+            <url>${lokiUrl}</url>
+        </http>
+
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+
+        <!--
+          local 이 아닐 때만 Loki 로 보냄
+          local 은 IntelliJ 에서 도는 경우이고 dev 는 컨테이너에서 도는 경우임
+        -->
+        <springProfile name="!local">
+            <appender-ref ref="LOKI"/>
+        </springProfile>
+    </root>
+
+</configuration>
