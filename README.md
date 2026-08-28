@@ -25,7 +25,8 @@ auth-service 기동
    ├─→ "나는 auth-service, 프로파일은 dev" 라고 요청
    │
    ├─→ config-server 가 config 저장소에서 아래 4개를 찾아 합침
-   │      application.yml  <  application-dev.yml  <  auth-service.yml  <  auth-service-dev.yml
+   │      application.yml  <  auth-service.yml  <  application-dev.yml  <  auth-service-dev.yml
+   │      (오른쪽이 이깁니다. 계층 번호로는 1 < 2 < 3 < 4 입니다)
    │
    └─→ 합쳐진 설정 한 벌을 응답
 ```
@@ -88,19 +89,17 @@ config-server  →  eureka-server  →  gateway-server  →  도메인 서비스
 
 ### 3-1. 합쳐진 설정 보기
 
-두 형태로 확인할 수 있습니다. 사람이 눈으로 볼 때는 아래쪽이 편합니다.
-
 ```powershell
-# 계층별로 어느 파일에서 왔는지까지 보여줍니다
-curl http://localhost:8888/auth-service/dev
-
-# 합쳐진 결과만 YAML 로 보여줍니다
-curl http://localhost:8888/auth-service-dev.yml
+curl.exe http://localhost:8888/auth-service/dev
 ```
+
+브라우저로 같은 주소를 열어도 됩니다. PowerShell 의 `curl` 은 `Invoke-WebRequest` 의 별칭이라 응답이 객체로 감싸지므로, 원문을 보려면 `curl.exe` 라고 확장자까지 적습니다.
+
+**`.yml` · `.properties` · `.json` 주소는 쓸 수 없습니다.** 설정 서버가 그 주소에서 서비스명과 프로파일을 하이픈으로 가르는데, 우리 서비스명은 모두 `auth-service` 처럼 하이픈을 포함하고 있어 400 이 납니다. 서비스가 설정을 받아 가는 경로도 위 슬래시 주소이므로 실사용에는 영향이 없습니다.
 
 ### 3-2. 확인할 것
 
-- 4개 계층이 모두 응답에 들어 있는지 (`application.yml`, `application-dev.yml`, `auth-service.yml`)
+- 계층이 모두 응답에 들어 있는지. `propertySources` 배열은 **앞이 우선순위가 높은 쪽**이며, 4계층이 없으면 `application-dev.yml`, `auth-service.yml`, `application.yml` 순으로 세 개가 나옵니다
 - **`${SERVICE_DB_PASSWORD}` 같은 플레이스홀더가 문자열 그대로 내려오는지.** 이 서버는 비밀 값을 알지 못하며, 치환은 설정을 받아 간 서비스가 자기 환경변수로 수행합니다
 - `${app.datasource.host}` 참조가 담긴 `spring.datasource.url` 이 그대로 내려오는지
 
