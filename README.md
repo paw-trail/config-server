@@ -73,7 +73,40 @@ cd config-server
 
 기본값을 붙인 것은 의도입니다. 로컬에서는 언제나 `localhost` 이므로 기본값이 정답이고, 없으면 개발자마다 실행 구성에 환경변수를 넣어야 합니다. 다만 **비밀 값에는 기본값을 붙이지 않습니다.** 이 서비스에는 비밀 값이 없습니다.
 
-### 2-3. 기동 순서
+### 2-3. 컨테이너로 띄우기
+
+`infra` 저장소의 Compose에 `platform` 프로파일이 있습니다. 도메인 서비스를 개발할 때는 **플랫폼을 컨테이너로 두고 작업 중인 서비스만 개발 도구에서 실행하는 조합**이 편합니다.
+
+```powershell
+cd ..\infra
+docker compose --profile infra --profile platform up -d
+docker compose ps
+```
+
+`STATUS` 가 `(healthy)` 로 바뀌면 준비된 것입니다. 이 서비스가 가장 먼저 뜨고 나머지 둘이 그것을 기다립니다.
+
+이미지는 ghcr에서 받아 오며, 코드를 고쳤다면 먼저 다시 만들어 올려야 합니다. 그 절차는 `infra` 저장소 README에 있습니다.
+
+```powershell
+.\gradlew clean build
+docker build -t ghcr.io/paw-trail/config-server:latest .
+docker push ghcr.io/paw-trail/config-server:latest
+```
+
+**다만 대부분은 이미지를 다시 만들 필요가 없습니다.** 이 서비스가 내려주는 값은 `config` 저장소에 있으므로 그쪽을 고치면 됩니다. 이미지를 다시 만들어야 하는 것은 이 저장소의 코드와 의존성이 바뀐 경우뿐입니다.
+
+**이 서비스만 주소를 환경변수로 직접 받아야 합니다.** 나머지 둘은 프로파일에 따라 이 서비스가 주소를 내려주지만, 이 서비스는 자기 설정을 그곳에서 받지 않기 때문입니다. 저장소 주소를 알아야 저장소를 읽을 수 있어 그렇게 두었습니다.
+
+```yaml
+environment:
+  SPRING_PROFILES_ACTIVE: dev
+  EUREKA_HOST: eureka-server
+  LOKI_HOST: loki
+```
+
+빠뜨리면 `localhost` 로 남는데 컨테이너 안에서 그것은 자기 자신이라 **유레카 등록이 영영 실패합니다.** 다만 등록 실패가 기동을 막지는 않아 30초마다 재시도만 반복되므로, **유레카 화면에 이 서비스가 안 보이는 것으로 알아차리게 됩니다.**
+
+### 2-4. 기동 순서
 
 Config First 방식이라 기동 순서가 선형입니다.
 
