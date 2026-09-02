@@ -19,7 +19,7 @@
 > ⚠ **`config` 와 `config-server` 는 다른 저장소입니다.**
 >
 > ```
-> paw-trail/config          yml 22개.  설정값이 담긴 저장소
+> paw-trail/config          yml 23개.  설정값이 담긴 저장소
 > paw-trail/config-server   이 저장소. 그것을 읽어 뿌리는 스프링 앱
 > ```
 
@@ -56,7 +56,7 @@ config-server  ──▶  eureka-server  ──▶  gateway-server  ──▶  �
 
 ```java
 @SpringBootApplication
-@EnableConfigServer          // ★Initializr 가 붙여 주지 않음. 없으면 그냥 빈 웹 앱이 뜸
+@EnableConfigServer          // *Initializr 가 붙여 주지 않음. 없으면 그냥 빈 웹 앱이 뜸
 public class ConfigServerApplication {
 
     public static void main(String[] args) {
@@ -66,6 +66,60 @@ public class ConfigServerApplication {
 ```
 
 **나머지는 전부 `application.yml` 입니다.**
+
+<br><br>
+
+---
+
+### 먼저 알아 두면 좋은 것 3가지
+
+---
+
+**① 설정 서버가 왜 있나**
+
+```
+설정 서버가 없으면                       있으면
+
+  서비스 14개가 각자 application.yml       서비스 14개가 기동할 때 여기에 물어봄
+  에 포트·DB 주소를 가짐                          │
+        │                                       └── 값은 config 저장소 한 곳에
+        └── DB 주소가 바뀌면                          바뀌면 그 한 곳만 고침
+            14개를 고치고 다시 배포
+```
+
+**서비스 쪽 `application.yml` 은 세 줄뿐이고** 나머지를 여기서 받습니다.
+
+---
+
+**② "4계층" 이란**
+
+`config` 저장소에는 파일이 네 부류 있고, **서비스 하나가 기동하면 그중 최대 4개가 겹쳐서
+하나가 됩니다.** 이 서버가 그 겹치기를 합니다.
+
+```
+application.yml           모든 서비스 공통
+place-service.yml         place 만
+application-local.yml     local 환경만
+place-service-local.yml   place · local 만     ← 있으면
+        │
+        └──▶  겹쳐서 하나로  →  place-service 에 내려 줌
+```
+
+어느 것이 이기는지는 [`config` README 2장](https://github.com/paw-trail/config) 에 있습니다.
+
+---
+
+**③ "유레카에 등록만 한다" 는 뜻**
+
+```
+등록     유레카 장부에 "config-server 는 8888 에 있다" 고 적음
+         → 대시보드에 보임
+조회     남의 주소를 장부에서 찾음
+         → 이 서버는 남을 부를 일이 없어 안 함
+```
+
+**서비스들은 유레카가 아니라 `spring.config.import` 에 적힌 주소로 직접 찾아옵니다.**
+그래서 등록은 동작에 필요해서가 아니라 **대시보드에 보이기 위해서** 합니다.
 
 <br><br>
 
@@ -82,6 +136,7 @@ public class ConfigServerApplication {
 | 이미지를 굽거나 배포해야 한다 | [5장](#5-컨테이너와-배포) |
 | 뭔가 안 된다 | [6장](#6-막히기-쉬운-자리) |
 | "왜 이렇게 만들었지" | [7장](#7-왜-이렇게-만들었나) |
+| 모르는 말이 나온다 | [8장](#8-용어) |
 
 > **설정값 자체는 이 문서에 없습니다.** 어떤 값이 어느 계층에 있는지는
 > [`config` README](https://github.com/paw-trail/config) 를 봅니다.
@@ -115,7 +170,7 @@ public class ConfigServerApplication {
 
 ```
 The following 1 profile is active: "local"
-Tomcat started on port 8888              ★웹 스타터가 전이로 들어온 증거
+Tomcat started on port 8888              *웹 스타터가 전이로 들어온 증거
 Started ConfigServerApplication in 6.2 seconds
 ```
 
@@ -243,7 +298,7 @@ http://localhost:8888/place-service-local.yml       →  400 Bad Request
 
 application.yml 3줄                 application.yml 전부
   name                                name · profiles
-  config.import  ← 저장소 주소          git.uri     ★저장소 주소
+  config.import  ← 저장소 주소          git.uri     *저장소 주소
   profiles.default                     port 8888
         │                              eureka 주소
         │                              loki 주소
@@ -263,7 +318,7 @@ application.yml 3줄                 application.yml 전부
 
 ---
 
-### 2-1. self-referential 을 쓰지 않습니다
+### 2-1. 자기 저장소에서 자기 설정을 읽는 기능(self-referential)을 쓰지 않습니다
 
 **스프링에는 설정 서버가 자기 저장소에서 자기 설정을 읽는 기능이 있는데 안 씁니다.**
 
@@ -293,7 +348,7 @@ config 저장소의 값        ──▶  git push 만
   CONFIG_HOST
 
 코드 · 의존성             ──▶  이미지 재빌드 + 재배포
-  application.yml 포함            ★드물어야 함
+  application.yml 포함            *드물어야 함
 
 
 그래서 application.yml 을 최대한 비우고
@@ -578,8 +633,8 @@ lokiVersion=2.0.3
   config-server:
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      EUREKA_HOST: eureka-server        # ★이 서버만
-      LOKI_HOST: loki                   # ★이 서버만
+      EUREKA_HOST: eureka-server        # *이 서버만
+      LOKI_HOST: loki                   # *이 서버만
 
   eureka-server:
     environment:
@@ -785,7 +840,7 @@ config-server  ──▶  eureka-server  ──▶  gateway-server  ──▶  �
 해결
   ① build.gradle 우클릭 → Link Gradle Project
   ② Gradle 툴 창의 + 로 build.gradle 지정
-  ③ ★확실한 방법
+  ③ *확실한 방법
        File → Close Project → File → Open
        폴더가 아니라 build.gradle 파일 자체를 선택 → Open as Project
 ```
@@ -931,3 +986,28 @@ HTTPS + fine-grained PAT (config 레포 하나에 Contents read-only)
         │
         └── git.username · git.password 에 환경변수로 주입
 ```
+
+<br><br>
+
+---
+
+## 8. 용어
+
+설정 용어는 `config` README 10장에 있습니다. **여기는 이 서버에서만 쓰는 말**입니다.
+
+| 용어 | 뜻 |
+|---|---|
+| **설정 서버** | 이 서비스. 저장소를 읽어 설정을 내려 줌 |
+| **config 클라이언트** | 설정을 받아 가는 쪽. 다른 서비스 전부 |
+| **`spring.config.import`** | 클라이언트가 설정 서버 주소를 적는 자리. `optional:configserver:...` |
+| **`optional:`** | 설정 서버가 없어도 기동은 하라는 표시. 대신 포트가 8080 으로 뜸 |
+| **닭-달걀 문제** | 저장소 주소를 알아야 저장소를 읽음 → 이 서버만 자기 설정을 못 받음 |
+| **self-referential** | 설정 서버가 자기 저장소에서 자기 설정을 읽는 기능. 우리는 안 씀 |
+| **`clone-on-start`** | 기동할 때 저장소를 미리 받아 둠. 주소가 틀리면 바로 드러남 |
+| **라벨 (label)** | 읽을 깃 브랜치. 우리는 `main` |
+| **`propertySources`** | 응답에서 어느 파일에서 온 값인지 보여 주는 배열. 앞이 우선 |
+| **Config First** | 서비스가 설정 서버를 **주소로 직접** 찾는 방식. 유레카를 안 거침 |
+| **`fetch-registry`** | 유레카에서 남의 주소를 받아 올지. 이 서버는 `false` |
+| **`register-with-eureka`** | 유레카에 자기를 올릴지. 이 서버는 `true` — 대시보드용 |
+| **`EUREKA_HOST` · `LOKI_HOST`** | 이 서버만 직접 받는 주소 환경변수. config 를 안 받아서 |
+| **loki4j** | 로그를 Loki 로 보내는 logback 부품. 공통 모듈 대신 직접 넣음 |
